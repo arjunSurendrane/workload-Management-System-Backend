@@ -103,8 +103,9 @@ export const sendEmail = async (req, res) => {
     const otp = otpGenerator.generate(5, { upperCaseAlphabets: false, specialChars: false, lowerCaseAlphabets: false })
     console.log(otp)
     try {
-        const Otps = new Otp({ email, otp })
-        const user = await User.findOne({ email })
+        // const Otps = new Otp({ email, otp })
+        // const user = await User.findOne({ email })
+        const [Otps, user] = await Promise.all([Otp({ email, otp }), User.findOne({ email })])
         if (user) return errorResponse(res, 406, 'already have an account')
         sendOtp(email, otp)
         // successresponse(res, 201, { email })
@@ -129,8 +130,10 @@ export const emailVerifiction = async (req, res) => {
         if (!emailOtp.length) return errorResponse(res, 401, 'invalid otp')
         let length = emailOtp.length
         if (!(otp == emailOtp[length - 1].otp)) return errorResponse(res, 401, 'invalid otp')
-        const user = await User.create({ name, email, password: bcryptPassword });
+        // const user = await User.create();
+        const user = new User({ name, email, password: bcryptPassword })
         successresponse(res, 200, user)
+        user.save()
         await Otp.deleteMany({ email })
     } catch (error) {
         console.log(error)
@@ -160,14 +163,17 @@ export const generateOtpForOtpLogin = async (req, res) => {
 
 // verify otp for otp login
 export const verifyOtp = async (req, res) => {
+
     try {
+        console.time('main')
         console.log(req.body)
         const { otp, email } = req.body;
-        const emailOtp = await Otp.find({ email })
+        const [emailOtp, user] = await Promise.all([Otp.find({ email }), User.findOne({ email })])
+        console.log({ emailOtp, user })
         if (!emailOtp.length) return errorResponse(res, 401, 'invalid otp')
         let length = emailOtp.length
         if (!(otp == emailOtp[length - 1].otp)) return errorResponse(res, 401, 'invalid otp')
-        const user = await User.findOne({ email });
+        console.timeEnd('main')
         successresponse(res, 200, user)
         await Otp.deleteMany({ email })
     } catch (error) {
